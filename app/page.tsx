@@ -10,7 +10,6 @@ import {useIsMobile} from "@/hooks/use-mobile"
 import { Toaster } from "@/components/ui/toaster"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2 } from "lucide-react"
 
 
 export default function Home() {
@@ -18,43 +17,48 @@ export default function Home() {
   const [currentView, setCurrentView] = useState("map")
   const isMobile = useIsMobile()
   const router = useRouter()
-  const [loadingAuth, setLoadingAuth] = useState(true)
+ // const [loadingAuth, setLoadingAuth] = useState(true)
 
   useEffect(() => {
+    
     const token = localStorage.getItem("token");
-    const userRole = localStorage.getItem("userRole")
+    const userRole = localStorage.getItem("userRole");
+  
+    // Vérifiez si le token est absent
     if (!token && !userRole) {
       router.push("/login");
-      return
+      return;
     }
-  
+    
     fetch(`${API_URL}/auth/validate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
     })
-      .then(res => {
+      .then((res) => {
         if (!res.ok) {
           throw new Error("Invalid token");
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error("Validation error:", error);
         localStorage.removeItem("token");
+        localStorage.removeItem("userRole");
         router.push("/login");
-        localStorage.removeItem("userRole")
-        return
-      })
-  }, []);
+      });
+
+  }, []); // Tableau de dépendances vide pour s'exécuter une seule fois
+  
   
 
-  if (loadingAuth) {
+  /*if (loadingAuth) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <Loader2 className="h-10 w-10 animate-spin text-gray-500" />
         <span className="ml-2 text-gray-700">Chargement...</span>
       </div>
     )
-  }
+  }*/
 
   return (
       <div className="flex h-screen overflow-hidden">

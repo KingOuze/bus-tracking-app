@@ -14,23 +14,25 @@ export type Bus = {
 
 export type Line = {
   _id: string
-  lineNumber: string
+  lineId: string
   name: string
-  description?: string
-  status: "active" | "inactive"
-  frequency: number // in minutes
-  stops: {
-    go: Stop[]
-    return: Stop[]
-  }
+  status: "active" | "inactive" | "maintenance" | "disrupted"
+  shortName: string
+  color: string // Hex color code
+  type: "bus" | "tram" | "metro"
+  company: string
   __v?: number
 }
 
 export type Stop = {
+  createdAt: string | number | Date
   _id: string
   name: string
   latitude: number
   longitude: number
+  address: string
+  status: "active" | "inactive"
+  
   arrivalTime?: string // HH:MM format
   departureTime?: string // HH:MM format
   order?: number // Order in the route
@@ -132,14 +134,14 @@ export const busSchema = z.object({
   lastMaintenance: z.string().optional().nullable(), // Keep as string for form, convert to Date later
 })
 
-export const lineSchema = z.object({
-  lineNumber: z.string().min(1, "Le numéro de ligne est requis."),
-  name: z.string().min(1, "La ligne est requis."),
-  description: z.string().optional().nullable(),
-  status: z.enum(["active", "inactive"], {
-    required_error: "Le statut est requis.",
-  }),
-  frequency: z.coerce.number().min(1, "La fréquence doit être au moins de 1 minute."),
+export const lineSchema =z.object({
+  lineId: z.string().min(1, "L'ID de la ligne est requis"),
+  name: z.string().min(1, "Le nom est requis"),
+  shortName: z.string().min(1, "Le nom court est requis"),
+  color: z.string().regex(/^#([0-9A-F]{3}){1,2}$/i, "Couleur invalide").optional(),
+  type: z.enum(["bus", "tram", "metro"]).optional(),
+  status: z.enum(["active", "inactive", "maintenance", "disrupted"]).optional(),
+  company: z.string().min(1, "La compagnie est requise"),
 })
 
 export const stopSchema = z.object({

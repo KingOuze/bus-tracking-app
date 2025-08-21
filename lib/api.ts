@@ -1,3 +1,4 @@
+import axios from "axios"
 import type {
   Bus,
   Line,
@@ -14,54 +15,66 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 
-async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${url}`, options)
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: "Erreur inconnue" }))
-    throw new Error(errorData.message || `Erreur HTTP: ${response.status}`)
+// Création d'une instance Axios
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+})
+
+// Intercepteur pour ajouter automatiquement le token
+api.interceptors.request.use((config: any) => {
+  const token = localStorage.getItem("token")
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
   }
-  return response.json()
+  return config
+})
+
+// Helper générique
+async function fetcher<T>(url: string, options?: any): Promise<T> {
+  try {
+    const response = await api({ url, ...options })
+    return response.data as T
+  } catch (error: any) {
+    if (error.response) {
+      throw new Error(error.response.data.message || `Erreur HTTP: ${error.response.status}`)
+    }
+    throw new Error(error.message || "Erreur inconnue")
+  }
 }
 
-// Bus API calls
-export const fetchBuses = async (p0: { limit: number; lat: number; lng: number; radius: number }): Promise<{ buses: Bus[] }> => fetcher("/buses")
+/* =============================
+   🚍  Bus API
+============================= */
+export const fetchBuses = async (): Promise<{ buses: Bus[] }> => fetcher("/buses")
 export const fetchBusById = async (id: string): Promise<{ bus: Bus }> => fetcher(`/buses/${id}`)
 export const createBus = async (busData: Omit<Bus, "_id" | "__v">): Promise<{ bus: Bus }> =>
-  fetcher("/buses", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(busData),
-  })
+  fetcher("/buses", { method: "POST", data: busData })
 export const updateBus = async (id: string, busData: Partial<Bus>): Promise<{ bus: Bus }> =>
-  fetcher(`/buses/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(busData),
-  })
+  fetcher(`/buses/${id}`, { method: "PUT", data: busData })
 export const deleteBus = async (id: string): Promise<{ message: string }> =>
   fetcher(`/buses/${id}`, { method: "DELETE" })
 
-// Line API calls
+/* =============================
+   🚏  Line API
+============================= */
 export const fetchLines = async (): Promise<{ lines: Line[] }> => fetcher("/lines")
 export const fetchLineById = async (id: string): Promise<{ line: Line }> => fetcher(`/lines/${id}`)
 export const createLine = async (lineData: Omit<Line, "_id" | "__v" | "stops">): Promise<{ line: Line }> =>
-  fetcher("/lines", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(lineData),
-  })
+  fetcher("/lines", { method: "POST", data: lineData })
 export const updateLine = async (id: string, lineData: Partial<Omit<Line, "stops">>): Promise<{ line: Line }> =>
-  fetcher(`/lines/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(lineData),
-  })
+  fetcher(`/lines/${id}`, { method: "PUT", data: lineData })
 export const deleteLine = async (id: string): Promise<{ message: string }> =>
   fetcher(`/lines/${id}`, { method: "DELETE" })
 
-// Stop API calls for a specific line
+/* =============================
+   🛑  Stops API
+============================= */
 export const fetchStopsByLine = async (lineId: string): Promise<{ stops: { go: Stop[]; return: Stop[] } }> =>
   fetcher(`/lines/${lineId}/stops`)
+
 export const createStopForLine = async (
   lineId: string,
   stopData: Omit<Stop, "_id" | "__v">,
@@ -69,9 +82,11 @@ export const createStopForLine = async (
 ): Promise<{ stop: Stop }> =>
   fetcher(`/lines/${lineId}/stops?direction=${direction}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(stopData),
+    data: stopData,
   })
+
+export const fetchAllStops = async (): Promise<{ stops: Stop[] }> => fetcher("/stops")
+
 export const updateStopForLine = async (
   lineId: string,
   stopId: string,
@@ -80,9 +95,9 @@ export const updateStopForLine = async (
 ): Promise<{ stop: Stop }> =>
   fetcher(`/lines/${lineId}/stops/${stopId}?direction=${direction}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(stopData),
+    data: stopData,
   })
+
 export const deleteStopForLine = async (
   lineId: string,
   stopId: string,
@@ -90,84 +105,42 @@ export const deleteStopForLine = async (
 ): Promise<{ message: string }> =>
   fetcher(`/lines/${lineId}/stops/${stopId}?direction=${direction}`, { method: "DELETE" })
 
-// Alert API calls
-export const fetchAlerts = async (p0: { limit: number; status: string }): Promise<{ alerts: Alert[] }> => fetcher("/alerts")
+/* =============================
+   ⚠️ Alerts API
+============================= */
+export const fetchAlerts = async (): Promise<{ alerts: Alert[] }> => fetcher("/alerts")
 export const fetchAlertById = async (id: string): Promise<{ alert: Alert }> => fetcher(`/alerts/${id}`)
 export const createAlert = async (
   alertData: Omit<Alert, "_id" | "__v" | "createdAt" | "updatedAt">,
-): Promise<{ alert: Alert }> =>
-  fetcher("/alerts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(alertData),
-  })
+): Promise<{ alert: Alert }> => fetcher("/alerts", { method: "POST", data: alertData })
 export const updateAlert = async (id: string, alertData: Partial<Alert>): Promise<{ alert: Alert }> =>
-  fetcher(`/alerts/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(alertData),
-  })
+  fetcher(`/alerts/${id}`, { method: "PUT", data: alertData })
 export const deleteAlert = async (id: string): Promise<{ message: string }> =>
   fetcher(`/alerts/${id}`, { method: "DELETE" })
 
-// Prediction API calls
-export const fetchPredictions = async (): Promise<{ predictions: Prediction[] }> => fetcher("/predictions")
-export const fetchPredictionById = async (id: string): Promise<{ prediction: Prediction }> =>
-  fetcher(`/predictions/${id}`)
-export const createPrediction = async (
-  predictionData: Omit<Prediction, "_id" | "__v">,
-): Promise<{ prediction: Prediction }> =>
-  fetcher("/predictions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(predictionData),
-  })
-export const updatePrediction = async (
-  id: string,
-  predictionData: Partial<Prediction>,
-): Promise<{ prediction: Prediction }> =>
-  fetcher(`/predictions/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(predictionData),
-  })
-export const deletePrediction = async (id: string): Promise<{ message: string }> =>
-  fetcher(`/predictions/${id}`, { method: "DELETE" })
-
-// Statistics API calls
+/* =============================
+   📊 Statistics API
+============================= */
 export const fetchStatisticsOverview = async (): Promise<{ overview: StatisticsOverview }> =>
   fetcher("/statistics/overview")
-export const fetchLinePerformance = async (): Promise<{
-  performance: LinePerformance[] 
-}> =>
+export const fetchLinePerformance = async (): Promise<{ performance: LinePerformance[] }> =>
   fetcher("/statistics/line-performance")
-export const fetchDelayDistribution = async (): Promise<{
-  distribution: DelayDistribution[] 
-}> =>
+export const fetchDelayDistribution = async (): Promise<{ distribution: DelayDistribution[] }> =>
   fetcher("/statistics/delay-distribution")
-export const fetchOccupancyTrends = async (p0: { period: string }): Promise<{
-  occupancyTrends(occupancyTrends: any): unknown
-  trends: OccupancyTrend[] 
-}> =>
+export const fetchOccupancyTrends = async (): Promise<{ trends: OccupancyTrend[] }> =>
   fetcher("/statistics/occupancy-trends")
 export const fetchPredictionAccuracy = async (): Promise<{ accuracy: PredictionAccuracy[] }> =>
   fetcher("/statistics/prediction-accuracy")
 export const fetchPredictiveAlerts = async (): Promise<{ alerts: PredictiveAlert[] }> =>
   fetcher("/statistics/predictive-alerts")
 
-// Auth API calls (example, adjust as per your backend)
+/* =============================
+   🔑 Auth API
+============================= */
 export const loginUser = async (
   credentials: any,
 ): Promise<{ token: string; user: { id: string; username: string; role: string } }> =>
-  fetcher("/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(credentials),
-  })
+  fetcher("/auth/login", { method: "POST", data: credentials })
 
 export const registerUser = async (userData: any): Promise<{ message: string }> =>
-  fetcher("/auth/register", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(userData),
-  })
+  fetcher("/auth/register", { method: "POST", data: userData })

@@ -7,14 +7,14 @@ import { LoginForm } from "@/components/auth/login-form"
 export default function LoginPage() {
   const router = useRouter()
 
-  useEffect(() => {
+  /* useEffect(() => {
     const userRole = localStorage.getItem("userRole")
     if (userRole === "admin") {
       router.push("/")
     } else if (userRole === "user") {
       router.push("/")
     }
-  }, [router])
+  }, [router])*/
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-950">

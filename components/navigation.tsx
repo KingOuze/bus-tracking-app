@@ -5,9 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Home, Bus, Route, Bell, BarChart, Settings, Menu, LogOut } from "lucide-react"
-//import { useSidebar } from "@/components/ui/sidebar" // Assuming useSidebar is from use-mobile
-
+import { Home, Bus, Route, Bell, BarChart, Settings, Menu, LogOut, MapPin } from "lucide-react"
 
 interface NavigationProps {
   isMobile?: boolean
@@ -17,12 +15,13 @@ interface NavigationProps {
 
 export function Navigation({ isMobile = false, currentView, onViewChange }: NavigationProps) {
   const pathname = usePathname()
-  //const { toggleSidebar } = useSidebar()
   const [isSheetOpen, setIsSheetOpen] = useState(false)
 
   const navItems = [
     { name: "Accueil", href: "/", icon: Home, adminOnly: true },
-    { name: "Gestion des Bus", href: "/admin/buses", icon: Bus, adminOnly: true },
+    
+    { name: "Gestion des Bus", href: "/admin/buses", icon: Bus, adminOnly: true }, 
+    { name: "Gestion des Arrêts", href: "/admin/stops", icon: MapPin, adminOnly: true },
     { name: "Gestion des Lignes", href: "/admin/lines", icon: Route, adminOnly: true },
     { name: "Alertes", href: "/alerts", icon: Bell, adminOnly: true },
     { name: "Statistiques", href: "/statistics", icon: BarChart, adminOnly: true },
@@ -32,7 +31,7 @@ export function Navigation({ isMobile = false, currentView, onViewChange }: Navi
   const handleLogout = () => {
     localStorage.removeItem("userRole")
     localStorage.removeItem("token")
-    window.location.href = "/login" // Redirect to login page
+    window.location.href = "/login"
   }
 
   const renderNavLinks = (isAdmin: boolean) => (
@@ -51,7 +50,7 @@ export function Navigation({ isMobile = false, currentView, onViewChange }: Navi
             }`}
             onClick={() => {
               if (isMobile) setIsSheetOpen(false)
-              if (onViewChange && !item.adminOnly) onViewChange(item.name) // Only for non-admin views if applicable
+              if (onViewChange && !item.adminOnly) onViewChange(item.name)
             }}
           >
             <item.icon className="h-4 w-4" />
@@ -72,7 +71,7 @@ export function Navigation({ isMobile = false, currentView, onViewChange }: Navi
     </nav>
   )
 
-  // Check if user is admin (simple check for demonstration)
+  // Check if user is admin
   const userRole = typeof window !== "undefined" ? localStorage.getItem("userRole") : null
   const isAdmin = userRole === "admin"
 

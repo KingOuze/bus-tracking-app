@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import type { Bus } from "@/types"
 import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
 
 export default function BusManagementPage() {
   const { toast } = useToast()
@@ -20,7 +19,7 @@ export default function BusManagementPage() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
-  const [loadingAuth, setLoadingAuth] = useState(true)
+//  const [loadingAuth, setLoadingAuth] = useState(true)
   const router = useRouter()
   
   useEffect(() => {
@@ -50,15 +49,6 @@ export default function BusManagementPage() {
       })
   }, []);
   
-
-  if (loadingAuth) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <Loader2 className="h-10 w-10 animate-spin text-gray-500" />
-        <span className="ml-2 text-gray-700">Chargement...</span>
-      </div>
-    )
-  }
 
   const loadBuses = useCallback(async () => {
     setLoading(true)

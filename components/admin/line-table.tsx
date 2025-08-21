@@ -50,8 +50,8 @@ export function LineTable({ lines, loading, onEdit, onRefresh }: LineTableProps)
             <TableHead>Numéro de Ligne</TableHead>
             <TableHead>Nom</TableHead>
             <TableHead>Description</TableHead>
-            <TableHead>Statut</TableHead>
-            <TableHead>Fréquence (min)</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -65,11 +65,11 @@ export function LineTable({ lines, loading, onEdit, onRefresh }: LineTableProps)
           ) : (
             lines.map((line) => (
               <TableRow key={line._id}>
-                <TableCell className="font-medium">{line.lineNumber}</TableCell>
-                <TableCell>{line.name}</TableCell>
-                <TableCell>{line.description || "N/A"}</TableCell>
+                <TableCell className="font-medium">{line.lineId}</TableCell>
+                <TableCell>{line.shortName}</TableCell>
+                <TableCell>{line.name || "N/A"}</TableCell>
+                <TableCell>{line.type}</TableCell>
                 <TableCell>{line.status}</TableCell>
-                <TableCell>{line.frequency}</TableCell>
                 <TableCell className="text-right">
                   <Link href={`/admin/lines/${line._id}/stops`} passHref>
                     <Button variant="outline" size="sm" className="mr-2 bg-transparent">
