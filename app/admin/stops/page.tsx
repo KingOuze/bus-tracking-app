@@ -83,9 +83,15 @@ export default function StopsPage() {
   }
 
   const handleSaveStop = (stopData: Omit<Stop, "_id" | "createdAt">) => {
+    // Ensure latitude and longitude are numbers, not undefined
+    const safeStopData: Omit<Stop, "_id" | "createdAt"> = {
+      ...stopData,
+      latitude: typeof stopData.latitude === "number" ? stopData.latitude : Number(stopData.latitude) || 0,
+    longitude: typeof stopData.longitude === "number" ? stopData.longitude : Number(stopData.longitude) || 0,
+    }
     if (editingStop) {
       // Modification
-      setStops((prev) => prev.map((stop) => (stop._id === editingStop._id ? { ...stop, ...stopData } : stop)))
+      setStops((prev) => prev.map((stop) => (stop._id === editingStop._id ? { ...stop, ...safeStopData } : stop)))
       toast({
         title: "Arrêt modifié",
         description: "L'arrêt a été modifié avec succès.",
@@ -93,7 +99,7 @@ export default function StopsPage() {
     } else {
       // Ajout
       const newStop: Stop = {
-        ...stopData,
+        ...safeStopData,
         _id: Date.now().toString(),
         createdAt: new Date().toISOString(),
       }

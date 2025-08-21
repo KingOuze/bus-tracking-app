@@ -94,8 +94,8 @@ export function StopModal({ isOpen, onClose, onSave, stop }: StopModalProps) {
       id: stop?.id || "",
       name: formData.name.trim(),
       address: formData.address.trim(),
-      latitude: formData.latitude ? Number(formData.latitude) : undefined,
-      longitude: formData.longitude ? Number(formData.longitude) : undefined,
+      latitude: typeof formData.latitude === "number" ? formData.latitude : Number(formData.latitude) || 0,
+      longitude: typeof formData.longitude === "number" ? formData.longitude : Number(formData.longitude) || 0,
       status: formData.status,
       createdAt: stop ? stop.createdAt : new Date().toISOString(),
     }
