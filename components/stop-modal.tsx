@@ -9,16 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Stop } from "@/types"
 
-interface Stop {
-  id: string
-  name: string
-  address: string
-  latitude?: number
-  longitude?: number
-  status: "active" | "inactive"
-  createdAt: string
-}
 
 interface StopModalProps {
   isOpen: boolean
@@ -89,9 +81,7 @@ export function StopModal({ isOpen, onClose, onSave, stop }: StopModalProps) {
     }
 
     const stopData = {
-      // Assuming stop._id is not needed for the form submission
-      // If you need it, you can add it back
-      id: stop?.id || "",
+      _id: stop?._id || "",
       name: formData.name.trim(),
       address: formData.address.trim(),
       latitude: typeof formData.latitude === "number" ? formData.latitude : Number(formData.latitude) || 0,

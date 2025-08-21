@@ -83,11 +83,11 @@ export default function StopsPage() {
   }
 
   const handleSaveStop = (stopData: Omit<Stop, "_id" | "createdAt">) => {
-    // Ensure latitude and longitude are numbers, not undefined
+
     const safeStopData: Omit<Stop, "_id" | "createdAt"> = {
       ...stopData,
       latitude: typeof stopData.latitude === "number" ? stopData.latitude : Number(stopData.latitude) || 0,
-    longitude: typeof stopData.longitude === "number" ? stopData.longitude : Number(stopData.longitude) || 0,
+      longitude: typeof stopData.longitude === "number" ? stopData.longitude : Number(stopData.longitude) || 0,
     }
     if (editingStop) {
       // Modification

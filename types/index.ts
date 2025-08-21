@@ -28,8 +28,8 @@ export type Stop = {
   createdAt: string | number | Date
   _id: string
   name: string
-  latitude: number
-  longitude: number
+  latitude?: number
+  longitude?: number
   address: string
   status: "active" | "inactive"
   
