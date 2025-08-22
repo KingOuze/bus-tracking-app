@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, use } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, Edit, Trash2, MapPin, ChevronLeft, ChevronRight } from "lucide-react"
 import { StopModal } from "@/components/stop-modal"
 import { useToast } from "@/hooks/use-toast"
-import { fetchAllStops } from "@/lib/api"
+import { fetchAllStops, createStop, updateStop, deleteStop } from "@/lib/api"
 import type { Stop } from "@/types" // or from "types/index" if that's the correct path
 
 // Remove local Stop interface, use imported type
@@ -32,18 +32,20 @@ export default function StopsPage() {
       setStops(response.stops)
     }
     fetchStops()
+    setLoading(false)
   }, [])
 
   const filteredAndPaginatedStops = useMemo(() => {
     const filtered = stops.filter((stop) => {
-      const matchesSearch =
-        stop.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        stop.address.toLowerCase().includes(searchTerm.toLowerCase())
+    if (!stop || !stop.name || !stop.address) return false; // Ignore les arrêts incomplets
+    const matchesSearch =
+      stop.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      stop.address.toLowerCase().includes(searchTerm.toLowerCase())
 
-      const matchesStatus = statusFilter === "all" || stop.status === statusFilter
+    const matchesStatus = statusFilter === "all" || stop.status === statusFilter
 
-      return matchesSearch && matchesStatus
-    })
+    return matchesSearch && matchesStatus
+  })
 
     const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
@@ -72,44 +74,79 @@ export default function StopsPage() {
   }
 
   const handleDeleteStop = async (stopId: string) => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer cet arrêt ?")) {
-      // Simulation de suppression - remplacez par votre appel API
+    try {
+      await deleteStop(stopId)
       setStops((prev) => prev.filter((stop) => stop._id !== stopId))
       toast({
         title: "Arrêt supprimé",
         description: "L'arrêt a été supprimé avec succès.",
       })
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer l'arrêt. Veuillez réessayer.",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleSaveStop = (stopData: Omit<Stop, "_id" | "createdAt">) => {
+  const handleSaveStop = async (stopData: Omit<Stop, "_id" | "__v">) => {
 
-    const safeStopData: Omit<Stop, "_id" | "createdAt"> = {
+    const safeStopData: Omit<Stop, "_id" | "__v"> = {
       ...stopData,
       latitude: typeof stopData.latitude === "number" ? stopData.latitude : Number(stopData.latitude) || 0,
       longitude: typeof stopData.longitude === "number" ? stopData.longitude : Number(stopData.longitude) || 0,
     }
     if (editingStop) {
       // Modification
-      setStops((prev) => prev.map((stop) => (stop._id === editingStop._id ? { ...stop, ...safeStopData } : stop)))
-      toast({
-        title: "Arrêt modifié",
-        description: "L'arrêt a été modifié avec succès.",
-      })
+      try {
+        const updatedStop = { ...editingStop, ...safeStopData }
+        await updateStop(editingStop._id, updatedStop)
+        // Update local state
+        setStops((prev) =>
+          prev.map((stop) => (stop._id === editingStop._id ? { ...stop, ...updatedStop } : stop)),
+        )
+        toast({
+          title: "Arrêt modifié",
+          description: "L'arrêt a été modifié avec succès.",
+        })
+      } catch (error) {
+        console.error("Erreur Update" + error)
+        toast({
+          title: "Erreur",
+          description: "Impossible de modifier l'arrêt. Veuillez réessayer.",
+          variant: "destructive",
+        })
+      }
     } else {
       // Ajout
-      const newStop: Stop = {
-        ...safeStopData,
-        _id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
+      if (!safeStopData.name || !safeStopData.address) {
+        toast({
+          title: "Erreur",
+          description: "Le nom et l'adresse de l'arrêt sont requis.",
+          variant: "destructive",
+        })
+        return
       }
-      setStops((prev) => [...prev, newStop])
-      toast({
-        title: "Arrêt ajouté",
-        description: "L'arrêt a été ajouté avec succès.",
-      })
+      try {
+        const newStop = await createStop(safeStopData)
+        console.log("Nouveau Stop", newStop)
+        setStops((prev) => [...prev, newStop.stop])
+        toast({
+          title: "Arrêt ajouté",
+          description: "L'arrêt a été ajouté avec succès.",
+        })
+      } catch (error) {
+        console.log("Erreur Ajout" + error)
+        toast({
+          title: "Erreur",
+          description: "Impossible d'ajouter l'arrêt. Veuillez réessayer.",
+          variant: "destructive",
+        })
+      }
+
+      setIsModalOpen(false)
     }
-    setIsModalOpen(false)
   }
 
   if (loading) {
@@ -271,4 +308,7 @@ export default function StopsPage() {
       </div>
     </div>
   )
+
+
 }
+

@@ -15,7 +15,7 @@ import { Stop } from "@/types"
 interface StopModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (stop: Omit<Stop, "_id" | "createdAt">) => void
+  onSave: (stop:  Omit<Stop, "_id" | "__v">) => Promise<void>
   stop?: Stop | null
 }
 
@@ -37,6 +37,7 @@ export function StopModal({ isOpen, onClose, onSave, stop }: StopModalProps) {
         latitude: stop.latitude?.toString() || "",
         longitude: stop.longitude?.toString() || "",
         status: stop.status,
+
       })
     } else {
       setFormData({
@@ -81,11 +82,10 @@ export function StopModal({ isOpen, onClose, onSave, stop }: StopModalProps) {
     }
 
     const stopData = {
-      _id: stop?._id || "",
       name: formData.name.trim(),
       address: formData.address.trim(),
-      latitude: typeof formData.latitude === "number" ? formData.latitude : Number(formData.latitude) || 0,
-      longitude: typeof formData.longitude === "number" ? formData.longitude : Number(formData.longitude) || 0,
+      latitude: Number(formData.latitude) || 0,
+      longitude: Number(formData.longitude) || 0,
       status: formData.status,
       createdAt: stop ? stop.createdAt : new Date().toISOString(),
     }

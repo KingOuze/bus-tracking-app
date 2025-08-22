@@ -28,8 +28,8 @@ export type Stop = {
   createdAt: string | number | Date
   _id: string
   name: string
-  latitude?: number
-  longitude?: number
+  latitude: number
+  longitude: number
   address: string
   status: "active" | "inactive"
   
@@ -148,17 +148,9 @@ export const stopSchema = z.object({
   name: z.string().min(1, "Le nom de l'arrêt est requis."),
   latitude: z.coerce.number().min(-90, "Latitude invalide").max(90, "Latitude invalide"),
   longitude: z.coerce.number().min(-180, "Longitude invalide").max(180, "Longitude invalide"),
-  arrivalTime: z
-    .string()
-    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Format HH:MM requis")
-    .optional()
-    .nullable(),
-  departureTime: z
-    .string()
-    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Format HH:MM requis")
-    .optional()
-    .nullable(),
-  order: z.coerce.number().min(0, "L'ordre doit être positif").optional().nullable(),
+  address: z.string().min(1, "L'adresse est requise."),
+  status: z.enum(["active", "inactive"]).optional(),
+  createdAt: z.string().optional(), // Keep as string for form, convert to Date later
 })
 
 export const alertSchema = z.object({

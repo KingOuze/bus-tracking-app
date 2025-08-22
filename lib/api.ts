@@ -75,6 +75,18 @@ export const deleteLine = async (id: string): Promise<{ message: string }> =>
 export const fetchStopsByLine = async (lineId: string): Promise<{ stops: { go: Stop[]; return: Stop[] } }> =>
   fetcher(`/lines/${lineId}/stops`)
 
+export const fetchStopById = async (lineId: string, stopId: string): Promise<{ stop: Stop }> =>
+  fetcher(`/lines/${lineId}/stops/${stopId}`)
+
+export const createStop = async (stopData: Omit<Stop, "_id" | "__v">): Promise<{ stop: Stop }> =>
+  fetcher("/stops", { method: "POST", data: stopData })
+
+export const updateStop = async (id: string, stopData: Partial<Stop>): Promise<{ stop: Stop }> =>
+  fetcher(`/stops/${id}`, { method: "PUT", data: stopData })
+
+export const deleteStop = async (id: string): Promise<{ message: string }> =>
+  fetcher(`/stops/${id}`, { method: "DELETE" })
+
 export const createStopForLine = async (
   lineId: string,
   stopData: Omit<Stop, "_id" | "__v">,
