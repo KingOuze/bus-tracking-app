@@ -88,34 +88,24 @@ export const deleteStop = async (id: string): Promise<{ message: string }> =>
   fetcher(`/stops/${id}`, { method: "DELETE" })
 
 export const createStopForLine = async (
-  lineId: string,
-  stopData: Omit<Stop, "_id" | "__v">,
+  data: any,
   direction: "go" | "return",
 ): Promise<{ stop: Stop }> =>
-  fetcher(`/lines/${lineId}/stops?direction=${direction}`, {
+  fetcher(`/lines/stops?direction=${direction}`, {
     method: "POST",
-    data: stopData,
+    data: data,
   })
 
 export const fetchAllStops = async (): Promise<{ stops: Stop[] }> => fetcher("/stops")
 
-export const updateStopForLine = async (
-  lineId: string,
-  stopId: string,
-  stopData: Partial<Stop>,
-  direction: "go" | "return",
-): Promise<{ stop: Stop }> =>
-  fetcher(`/lines/${lineId}/stops/${stopId}?direction=${direction}`, {
-    method: "PUT",
-    data: stopData,
-  })
-
 export const deleteStopForLine = async (
-  lineId: string,
-  stopId: string,
+  data: any, 
   direction: "go" | "return",
 ): Promise<{ message: string }> =>
-  fetcher(`/lines/${lineId}/stops/${stopId}?direction=${direction}`, { method: "DELETE" })
+  fetcher(`/lines/${data.lineId}/stops/${data.stopId}?direction=${direction}`, { 
+      method: "DELETE",
+      data: data 
+    })
 
 /* =============================
    ⚠️ Alerts API

@@ -1,30 +1,34 @@
 "use client"
 import { useState, useEffect, useMemo } from "react"
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Route, MapPin, Plus, X, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Search, Route, MapPin, Plus, X, ChevronLeft, ChevronRight, ArrowLeft,  Trash, Pencil } from "lucide-react"
 import type { Line, Stop } from "@/types"
 import { fetchLines, fetchStopsByLine, createStopForLine, deleteStopForLine, fetchAllStops } from "@/lib/api"
+import LineModal from "@/components/line-modal"
+import { createLine, updateLine, deleteLine } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 
-interface LineWithStops extends Line {
-  stops: { go: Stop[]; return: Stop[] }
-}
-
-interface StopWithOrder extends Stop {
-  order: number
-}
 
 const LINES_PER_PAGE = 10
 const STOPS_PER_PAGE = 20
 
+// Définition d'un type qui correspond à ta réponse API
+type LineStopsResponse = {
+  go: Stop[];
+  return: Stop[];
+};
 export default function LinesPage() {
   const [lines, setLines] = useState<Line[]>([])
   const [selectedLine, setSelectedLine] = useState<Line | null>(null)
-  const [selectedLineStops, setSelectedLineStops] = useState<{ go: Stop[]; return: Stop[] }>({ go: [], return: [] })
+ const [selectedLineStops, setSelectedLineStops] = useState<LineStopsResponse>({
+    go: [],
+    return: [],
+  });
   const [selectedDirection, setSelectedDirection] = useState<"go" | "return">("go")
   const [allStops, setAllStops] = useState<Stop[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -36,6 +40,9 @@ export default function LinesPage() {
   const [loading, setLoading] = useState(true)
   const [stopsLoading, setStopsLoading] = useState(false)
   const { toast } = useToast()
+  const [lineModalOpen, setLineModalOpen] = useState(false)
+  const [editingLine, setEditingLine] = useState<Line | null>(null)
+
 
   useEffect(() => {
     const loadLines = async () => {
@@ -81,7 +88,8 @@ export default function LinesPage() {
       try {
         setStopsLoading(true)
         const response = await fetchStopsByLine(selectedLine._id)
-        setSelectedLineStops(response.stops || { go: [], return: [] })
+        console.log(response)
+        setSelectedLineStops(response.stops)
       } catch (error) {
         console.error("Error loading line stops:", error)
         setSelectedLineStops({ go: [], return: [] })
@@ -155,14 +163,19 @@ export default function LinesPage() {
     if (!selectedLine) return
 
     try {
-      await createStopForLine(selectedLine._id, stop, selectedDirection)
+      const currentStops = selectedLineStops[selectedDirection] || []
+      const lastOrder = currentStops.length > 0 ? Math.max(...currentStops.map(s => s.order || 0)) : 0
+      const newOrder = lastOrder + 1
+
+      const data = { lineId: selectedLine._id, stopId: stop._id, order: newOrder }
+      await createStopForLine(data, selectedDirection)
 
       const response = await fetchStopsByLine(selectedLine._id)
       setSelectedLineStops(response.stops)
 
       toast({
         title: "Arrêt assigné",
-        description: `L'arrêt "${stop.name}" a été assigné à la ligne "${selectedLine.name}".`,
+        description: `L'arrêt "${stop.name}" a été assigné (position ${newOrder}) à la ligne "${selectedLine.name}".`,
       })
     } catch (error) {
       console.error("Error assigning stop:", error)
@@ -181,7 +194,8 @@ export default function LinesPage() {
     if (!stop) return
 
     try {
-      await deleteStopForLine(selectedLine._id, stopId, selectedDirection)
+      const data = { lineId: selectedLine._id, stopId: stop._id }
+      await deleteStopForLine(data, selectedDirection)
 
       const response = await fetchStopsByLine(selectedLine._id)
       setSelectedLineStops(response.stops)
@@ -226,6 +240,75 @@ export default function LinesPage() {
         return "🚌"
     }
   }
+
+  const handleSaveLine = async (lineData: Omit<Line, "_id" | "__v">, id?: string) => {
+    try {
+      if (id) {
+        await updateLine(id, lineData)
+        toast({ title: "Succès", description: "Ligne modifiée avec succès ✅" })
+      } else {
+        await createLine(lineData)
+        toast({ title: "Succès", description: "Ligne ajoutée avec succès 🚀" })
+      }
+      const response = await fetchLines()
+      setLines(response.lines)
+    } catch (error) {
+      toast({ title: "Erreur", description: "Impossible d'enregistrer la ligne", variant: "destructive" })
+    }
+  }
+
+  const handleDeleteLine = async (id: string) => {
+    if (!confirm("Voulez-vous vraiment supprimer cette ligne ?")) return
+    try {
+      await deleteLine(id)
+      toast({ title: "Supprimée", description: "La ligne a été supprimée ✅" })
+      setLines(lines.filter((l) => l._id !== id))
+    } catch (error) {
+      toast({ title: "Erreur", description: "Impossible de supprimer la ligne", variant: "destructive" })
+    }
+  }
+
+  const handleReorderStops = async (result: any) => {
+    if (!result.destination || !selectedLine) return
+
+    const directionStops = [...(selectedLineStops[selectedDirection] || [])]
+    const [movedStop] = directionStops.splice(result.source.index, 1)
+    directionStops.splice(result.destination.index, 0, movedStop)
+
+    // Recalculer l'ordre
+    const reorderedStops = directionStops.map((stop, index) => ({
+      ...stop,
+      order: index + 1,
+    }))
+
+    // Mettre à jour le front
+    setSelectedLineStops({
+      ...selectedLineStops,
+      [selectedDirection]: reorderedStops,
+    })
+
+    try {
+      // Appel API pour mettre à jour les orders
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lines/${selectedLine._id}/stops/reorder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ direction: selectedDirection, stops: reorderedStops }),
+      })
+
+      toast({
+        title: "Arrêts réorganisés",
+        description: "L'ordre des arrêts a été mis à jour avec succès.",
+      })
+    } catch (error) {
+      console.error("Error reordering stops:", error)
+      toast({
+        title: "Erreur",
+        description: "Impossible de réorganiser les arrêts.",
+        variant: "destructive",
+      })
+    }
+  }
+
 
   if (loading) {
     return (
@@ -329,10 +412,34 @@ export default function LinesPage() {
             </CardHeader>
             <CardContent>
               {stopsLoading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Chargement des arrêts...</p>
-                </div>
+                <DragDropContext onDragEnd={handleReorderStops}>
+                  <Droppable droppableId="stopsList">
+                    {(provided : any) => (
+                      <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
+                        {currentStops
+                          .sort((a, b) => (a.order || 0) - (b.order || 0))
+                          .map((stop, index) => (
+                            <Draggable key={stop._id} draggableId={stop._id} index={index}>
+                              {(provided: any) => (
+                                <Card
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className="p-2 flex justify-between items-center shadow-sm hover:shadow-md transition"
+                                >
+                                  <span>{index + 1}. {stop.name}</span>
+                                  <Button variant="outline" size="sm" onClick={() => handleUnassignStop(stop._id)}>
+                                    Retirer
+                                  </Button>
+                                </Card>
+                              )}
+                            </Draggable>
+                          ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
               ) : currentStops.length > 0 ? (
                 <div className="space-y-2">
                   {currentStops
@@ -381,6 +488,11 @@ export default function LinesPage() {
             {lines.length} ligne{lines.length > 1 ? "s" : ""} • {allStops.length} arrêt
             {allStops.length > 1 ? "s" : ""} disponible{allStops.length > 1 ? "s" : ""}
           </p>
+        </div>
+        <div className="flex justify-end mb-4">
+          <Button onClick={() => { setEditingLine(null); setLineModalOpen(true) }}>
+            <Plus className="w-4 h-4 mr-2" /> Ajouter une ligne
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -432,11 +544,13 @@ export default function LinesPage() {
             <Card
               key={line._id}
               className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => setSelectedLine(line)}
             >
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                  <div
+                    className="flex items-center gap-4 cursor-pointer"
+                    onClick={() => setSelectedLine(line)}
+                  >
                     <div className="w-6 h-6 rounded-full" style={{ backgroundColor: line.color }} />
                     <div>
                       <div className="flex items-center gap-2">
@@ -447,12 +561,34 @@ export default function LinesPage() {
                       <p className="text-muted-foreground">{line.company}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">ID: {line.lineId}</p>
+
+                  <div className="flex gap-2">
+                    {/* 👇 Nouveau bouton Arrêts */}
+                    <Button variant="default" size="sm" onClick={() => setSelectedLine(line)}>
+                      <MapPin className="w-4 h-4 mr-1" />
+                      Arrêts
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setEditingLine(line); setLineModalOpen(true) }}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={() => handleDeleteLine(line._id)}
+                    >
+                      <Trash className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
           ))}
         </div>
 
@@ -494,6 +630,13 @@ export default function LinesPage() {
           </Card>
         )}
       </div>
+      <LineModal
+        open={lineModalOpen}
+        onClose={() => setLineModalOpen(false)}
+        onSave={handleSaveLine}
+        initialData={editingLine}
+      />
+
     </div>
   )
 }
