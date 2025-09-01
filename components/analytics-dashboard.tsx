@@ -20,8 +20,20 @@ import {
   Legend,
 } from "recharts"
 import { TrendingUp, TrendingDown, Clock, Users, Download, Filter, BarChart3 } from "lucide-react"
-import { fetchLinePerformance, fetchOccupancyTrends, fetchPredictionAccuracy, fetchStatisticsOverview } from "@/lib/api"
-import { OccupancyTrend, PredictionAccuracy, LinePerformance, StatisticsOverview } from "@/types"
+import {
+  fetchLinePerformance,
+  fetchOccupancyTrends,
+  fetchPredictionAccuracy,
+  fetchStatisticsOverview,
+  fetchDelayDistribution,
+} from "@/lib/api"
+import type {
+  OccupancyTrend,
+  PredictionAccuracy,
+  LinePerformance,
+  StatisticsOverview,
+  DelayDistribution,
+} from "@/lib/api"
 
 export default function AnalyticsDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState("7days")
@@ -29,6 +41,7 @@ export default function AnalyticsDashboard() {
   const [occupancyTrendsData, setOccupancyTrendsData] = useState<OccupancyTrend[]>([])
   const [predictionAccuracyData, setPredictionAccuracyData] = useState<PredictionAccuracy[]>([])
   const [overviewStats, setOverviewStats] = useState<StatisticsOverview | null>(null)
+  const [delayDistributionData, setDelayDistributionData] = useState<DelayDistribution[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,17 +49,19 @@ export default function AnalyticsDashboard() {
     async function loadAnalyticsData() {
       try {
         setLoading(true)
-        const [linePerfRes, occupancyTrendsRes, predictionAccuracyRes, overviewRes] = await Promise.all([
+        const [linePerfRes, occupancyTrendsRes, predictionAccuracyRes, overviewRes, delayDistRes] = await Promise.all([
           fetchLinePerformance(),
-          fetchOccupancyTrends({ period: "day" }), // Fetch daily occupancy trends
+          fetchOccupancyTrends({ period: "hour" }),
           fetchPredictionAccuracy(),
           fetchStatisticsOverview(),
+          fetchDelayDistribution(),
         ])
 
-        setLinePerformanceData(linePerfRes.performance)
-        setOccupancyTrendsData(occupancyTrendsRes.trends)
-        setPredictionAccuracyData(predictionAccuracyRes.accuracy)
-        setOverviewStats(overviewRes.overview)
+        setLinePerformanceData(linePerfRes.linePerformance)
+        setOccupancyTrendsData(occupancyTrendsRes.occupancyTrends)
+        setPredictionAccuracyData(predictionAccuracyRes.predictionAccuracy)
+        setOverviewStats(overviewRes)
+        setDelayDistributionData(delayDistRes.delayDistribution)
       } catch (err: any) {
         setError(err.message)
         console.error("Failed to load analytics data:", err)
@@ -90,7 +105,7 @@ export default function AnalyticsDashboard() {
     })
     return formattedItem
   })
-    
+
   const customerSatisfaction = [
     { category: "Ponctualité", score: 85, target: 90 },
     { category: "Confort", score: 78, target: 85 },
@@ -155,9 +170,10 @@ export default function AnalyticsDashboard() {
       </div>
 
       <Tabs defaultValue="performance" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="utilization">Utilisation</TabsTrigger>
+          <TabsTrigger value="delays">Retards</TabsTrigger>
           <TabsTrigger value="satisfaction">Satisfaction</TabsTrigger>
           <TabsTrigger value="trends">Tendances</TabsTrigger>
         </TabsList>
@@ -171,10 +187,7 @@ export default function AnalyticsDashboard() {
                   <div>
                     <p className="text-sm text-gray-600">Ponctualité Moyenne</p>
                     <p className="text-2xl font-bold text-green-600">
-                      {typeof overviewStats?.averagePunctuality === "number"
-                        ? overviewStats?.averagePunctuality?.toFixed(1)
-                        : "N/A"}
-                      %
+                      {overviewStats?.onTimePerformance?.toFixed(1) || "N/A"}%
                     </p>
                     <div className="flex items-center gap-1 mt-1">
                       <TrendingUp className="w-3 h-3 text-green-500" />
@@ -190,31 +203,13 @@ export default function AnalyticsDashboard() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Retard Moyen</p>
-                    <p className="text-2xl font-bold text-orange-600">
-                      {linePerformanceData.reduce((sum, l) => sum + l.averageDelay, 0) / linePerformanceData.length ||
-                        0}{" "}
-                      min
+                    <p className="text-sm text-gray-600">Bus Actifs</p>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {overviewStats?.activeBuses || 0}/{overviewStats?.totalBuses || 0}
                     </p>
                     <div className="flex items-center gap-1 mt-1">
-                      <TrendingDown className="w-3 h-3 text-green-500" />
-                      <span className="text-xs text-green-600">-0.8 min</span>
-                    </div>
-                  </div>
-                  <Clock className="w-8 h-8 text-orange-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Passagers/Jour</p>
-                    <p className="text-2xl font-bold text-blue-600">15,847</p>
-                    <div className="flex items-center gap-1 mt-1">
                       <TrendingUp className="w-3 h-3 text-green-500" />
-                      <span className="text-xs text-green-600">+5.2%</span>
+                      <span className="text-xs text-green-600">+5 aujourd'hui</span>
                     </div>
                   </div>
                   <Users className="w-8 h-8 text-blue-500" />
@@ -226,8 +221,24 @@ export default function AnalyticsDashboard() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Incidents</p>
-                    <p className="text-2xl font-bold text-red-600">{overviewStats?.activeAlerts}</p>
+                    <p className="text-sm text-gray-600">Bus en Retard</p>
+                    <p className="text-2xl font-bold text-orange-600">{overviewStats?.delayedBuses || 0}</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <TrendingDown className="w-3 h-3 text-green-500" />
+                      <span className="text-xs text-green-600">-2 vs hier</span>
+                    </div>
+                  </div>
+                  <Clock className="w-8 h-8 text-orange-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Alertes Actives</p>
+                    <p className="text-2xl font-bold text-red-600">{overviewStats?.activeAlerts || 0}</p>
                     <div className="flex items-center gap-1 mt-1">
                       <TrendingDown className="w-3 h-3 text-green-500" />
                       <span className="text-xs text-green-600">-3 cette semaine</span>
@@ -243,42 +254,27 @@ export default function AnalyticsDashboard() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Performance Hebdomadaire</CardTitle>
-                <CardDescription>Ponctualité et nombre de passagers par jour</CardDescription>
+                <CardTitle>Performance par Ligne</CardTitle>
+                <CardDescription>Comparaison des performances entre les lignes</CardDescription>
               </CardHeader>
               <CardContent>
                 <ChartContainer
                   config={{
-                    onTime: { label: "À l'heure (%)", color: "hsl(var(--chart-1))" },
-                    passengers: { label: "Passagers", color: "hsl(var(--chart-2))" },
+                    onTimeBuses: { label: "Bus à l'heure", color: "hsl(var(--chart-1))" },
+                    delayedBuses: { label: "Bus en retard", color: "hsl(var(--chart-2))" },
                   }}
                   className="h-[300px]"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={weeklyPerformance}>
+                    <BarChart data={linePerformanceData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="day" />
-                      <YAxis yAxisId="left" />
-                      <YAxis yAxisId="right" orientation="right" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Legend />
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="onTime"
-                        stroke="var(--color-onTime)"
-                        strokeWidth={2}
-                        name="À l'heure (%)"
-                      />
-                      <Line
-                        yAxisId="right"
-                        type="monotone"
-                        dataKey="passengers"
-                        stroke="var(--color-passengers)"
-                        strokeWidth={2}
-                        name="Passagers"
-                      />
-                    </LineChart>
+                      <Bar dataKey="onTimeBuses" fill="var(--color-onTimeBuses)" name="Bus à l'heure" />
+                      <Bar dataKey="delayedBuses" fill="var(--color-delayedBuses)" name="Bus en retard" />
+                    </BarChart>
                   </ResponsiveContainer>
                 </ChartContainer>
               </CardContent>
@@ -344,6 +340,37 @@ export default function AnalyticsDashboard() {
                     {linePerformanceData.map((line) => (
                       <Bar key={line.lineId} dataKey={line.lineId} fill={line.color} name={line.name} />
                     ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="delays" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Distribution des Retards</CardTitle>
+              <CardDescription>Répartition des bus selon leurs retards</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer
+                config={{
+                  count: { label: "Nombre de bus", color: "hsl(var(--chart-1))" },
+                  percentage: { label: "Pourcentage", color: "hsl(var(--chart-2))" },
+                }}
+                className="h-[400px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={delayDistributionData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="category" />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="count" fill="var(--color-count)" name="Nombre de bus" />
+                    <Bar yAxisId="right" dataKey="percentage" fill="var(--color-percentage)" name="Pourcentage (%)" />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartContainer>
