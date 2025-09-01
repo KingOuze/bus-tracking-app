@@ -39,16 +39,74 @@ export type Stop = {
   __v?: number
 }
 
-export type Prediction = {
+// Types pour les prédictions
+export interface Prediction {
   _id: string
   busId: string
-  lineId: string
-  stopId: string
-  predictedArrivalTime: Date
-  actualArrivalTime?: Date
-  delayMinutes?: number
-  accuracyScore?: number
-  __v?: number
+  lineId: {
+    _id: string
+    lineId: string
+    name: string
+    shortName: string
+    color: string
+  }
+  stopId?: string
+  predictionType: "arrival" | "delay" | "occupancy" | "disruption"
+  algorithm: "linear_regression" | "exponential_moving_average" | "seasonal_analysis" | "ensemble"
+  predictedValue: number
+  confidence: number
+  horizon: number
+  factors: Array<{
+    name: string
+    impact: number
+    confidence: number
+  }>
+  externalFactors: {
+    weather?: {
+      condition: string
+      temperature: number
+      impact: number
+    }
+    traffic?: {
+      level: string
+      impact: number
+    }
+    events?: Array<{
+      type: string
+      impact: number
+    }>
+  }
+  createdAt: string
+  expiresAt: string
+}
+
+export interface PredictiveAlert {
+  id: string
+  type: "prediction"
+  severity: "low" | "medium" | "high" | "critical"
+  busId: string
+  line: {
+    lineId: string
+    name: string
+    shortName: string
+    color: string
+  }
+  message: string
+  confidence: number
+  horizon: number
+  factors: Array<{
+    name: string
+    impact: number
+    confidence: number
+  }>
+  createdAt: string
+}
+
+export interface PredictionAccuracy {
+  algorithm: string
+  averageAccuracy: number
+  averageConfidence: number
+  count: number
 }
 
 export type Alert = {
@@ -104,22 +162,6 @@ export type DelayDistribution = {
 export type OccupancyTrend = {
   timestamp: string // e.g., "HH:00"
   averageOccupancy: number
-}
-
-export type PredictionAccuracy = {
-  averageAccuracy: number
-  date: string // YYYY-MM-DD
-  accuracy: number
-}
-
-export type PredictiveAlert = {
-  _id: string
-  type: "predictive_delay" | "predictive_cancellation"
-  message: string
-  lineId: string
-  busId: string
-  predictedDelayMinutes: number
-  timestamp: Date
 }
 
 // Zod Schemas for validation

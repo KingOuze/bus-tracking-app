@@ -131,10 +131,6 @@ export const fetchDelayDistribution = async (): Promise<{ distribution: DelayDis
   fetcher("/statistics/delay-distribution")
 export const fetchOccupancyTrends = async (): Promise<{ trends: OccupancyTrend[] }> =>
   fetcher("/statistics/occupancy-trends")
-export const fetchPredictionAccuracy = async (): Promise<{ accuracy: PredictionAccuracy[] }> =>
-  fetcher("/statistics/prediction-accuracy")
-export const fetchPredictiveAlerts = async (): Promise<{ alerts: PredictiveAlert[] }> =>
-  fetcher("/statistics/predictive-alerts")
 
 /* =============================
    🔑 Auth API
@@ -146,3 +142,175 @@ export const loginUser = async (
 
 export const registerUser = async (userData: any): Promise<{ message: string }> =>
   fetcher("/auth/register", { method: "POST", data: userData })
+
+
+/* =============================
+   Predictions API
+============================= */
+
+
+// Fonction pour récupérer les prédictions
+export async function fetchPredictions(
+  params: {
+    busId?: string
+    lineId?: string
+    algorithm?: string
+    type?: string
+    horizon?: string
+    limit?: number
+  } = {},
+): Promise<{
+  predictions: Record<string, Prediction[]>
+  count: number
+  algorithm: string
+  generatedAt: string
+}> {
+  try {
+    const searchParams = new URLSearchParams()
+
+    if (params.busId) searchParams.append("busId", params.busId)
+    if (params.lineId) searchParams.append("lineId", params.lineId)
+    if (params.algorithm) searchParams.append("algorithm", params.algorithm)
+    if (params.type) searchParams.append("type", params.type)
+    if (params.horizon) searchParams.append("horizon", params.horizon)
+    if (params.limit) searchParams.append("limit", params.limit.toString())
+
+    const response = await fetch(`${API_URL}/predictions?${searchParams}`)
+
+    if (!response.ok) {
+      throw new Error(`Erreur ${response.status}: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    // Grouper les prédictions par type
+    const groupedPredictions = data.predictions.reduce((acc: Record<string, Prediction[]>, pred: Prediction) => {
+      if (!acc[pred.predictionType]) {
+        acc[pred.predictionType] = []
+      }
+      acc[pred.predictionType].push(pred)
+      return acc
+    }, {})
+
+    return {
+      predictions: groupedPredictions,
+      count: data.count,
+      algorithm: data.algorithm,
+      generatedAt: data.generatedAt,
+    }
+  } catch (error) {
+    console.error("Erreur lors de la récupération des prédictions:", error)
+    throw error
+  }
+}
+
+// Fonction pour récupérer les prédictions d'un bus spécifique
+export async function fetchBusPredictions(
+  busId: string,
+  algorithm = "ensemble",
+): Promise<{
+  busId: string
+  algorithm: string
+  predictions: Record<string, Prediction[]>
+  totalPredictions: number
+}> {
+  try {
+    const response = await fetch(`${API_URL}/predictions/bus/${busId}?algorithm=${algorithm}`)
+
+    if (!response.ok) {
+      throw new Error(`Erreur ${response.status}: ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("Erreur lors de la récupération des prédictions du bus:", error)
+    throw error
+  }
+}
+
+// Fonction pour récupérer les alertes prédictives
+export async function fetchPredictiveAlerts(
+  params: {
+    severity?: string
+    line?: string
+  } = {},
+): Promise<{
+  alerts: PredictiveAlert[]
+  count: number
+  generatedAt: string
+}> {
+  try {
+    const searchParams = new URLSearchParams()
+
+    if (params.severity) searchParams.append("severity", params.severity)
+    if (params.line) searchParams.append("line", params.line)
+
+    const response = await fetch(`${API_URL}/predictions/alerts?${searchParams}`)
+
+    if (!response.ok) {
+      throw new Error(`Erreur ${response.status}: ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("Erreur lors de la récupération des alertes prédictives:", error)
+    throw error
+  }
+}
+
+// Fonction pour récupérer les statistiques de performance
+export async function fetchPredictionAccuracy(): Promise<{
+  predictionAccuracy: PredictionAccuracy[]
+  lastUpdated: string
+}> {
+  try {
+    const response = await fetch(`${API_URL}/predictions/performance`)
+
+    if (!response.ok) {
+      throw new Error(`Erreur ${response.status}: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    // Convertir les statistiques en format attendu par le composant
+    const predictionAccuracy = Object.entries(data.performance).map(([algorithm, stats]: [string, any]) => ({
+      algorithm,
+      averageAccuracy: stats.averageAccuracy || 0,
+      averageConfidence: stats.averageConfidence || 0,
+      count: stats.count || 0,
+    }))
+
+    return {
+      predictionAccuracy,
+      lastUpdated: data.lastUpdated,
+    }
+  } catch (error) {
+    console.error("Erreur lors de la récupération des statistiques:", error)
+    throw error
+  }
+}
+
+// Fonction pour générer de nouvelles prédictions (nécessite authentification)
+export async function generatePredictions(token: string): Promise<{
+  message: string
+  timestamp: string
+}> {
+  try {
+    const response = await fetch(`${API_URL}/predictions/generate`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Erreur ${response.status}: ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error("Erreur lors de la génération des prédictions:", error)
+    throw error
+  }
+}
